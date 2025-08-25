@@ -1,0 +1,710 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+:root {
+  --light-primary-color: #6D28D9;
+  --light-secondary-color: #EDE9FE;
+  --light-background-color: #F5F3FF;
+  --light-card-background: #FFFFFF;
+  --light-text-color: #1F2937;
+  --light-text-secondary-color: #6B7280;
+  --light-border-color: #D1D5DB;
+  --light-shadow-color: rgba(0, 0, 0, 0.08);
+  --light-high-priority: #EF4444;
+  --light-medium-priority: #F97316;
+  --light-low-priority: #22C55E;
+
+  --dark-primary-color: #8B5CF6;
+  --dark-secondary-color: #3730A3;
+  --dark-background-color: #111827;
+  --dark-card-background: #1F2937;
+  --dark-text-color: #F9FAFB;
+  --dark-text-secondary-color: #9CA3AF;
+  --dark-border-color: #374151;
+  --dark-shadow-color: rgba(0, 0, 0, 0.25);
+  --dark-high-priority: #F87171;
+  --dark-medium-priority: #FB923C;
+  --dark-low-priority: #4ADE80;
+
+  --primary-color: var(--light-primary-color);
+  --secondary-color: var(--light-secondary-color);
+  --background-color: var(--light-background-color);
+  --card-background: var(--light-card-background);
+  --text-color: var(--light-text-color);
+  --text-secondary-color: var(--light-text-secondary-color);
+  --border-color: var(--light-border-color);
+  --shadow-color: var(--light-shadow-color);
+  --high-priority: var(--light-high-priority);
+  --medium-priority: var(--light-medium-priority);
+  --low-priority: var(--light-low-priority);
+}
+
+body, .app-container {
+  margin: 0;
+  padding: 0;
+  background: #f6f6f6;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+}
+
+.App {
+  padding: 1rem 2rem;
+  min-height: 100vh;
+  background-color: var(--background-color);
+}
+
+.dark {
+  /* Dark Theme Variables */
+  --primary-color: var(--dark-primary-color);
+  --secondary-color: var(--dark-secondary-color);
+  --background-color: var(--dark-background-color);
+  --card-background: var(--dark-card-background);
+  --text-color: var(--dark-text-color);
+  --text-secondary-color: var(--dark-text-secondary-color);
+  --border-color: var(--dark-border-color);
+  --shadow-color: var(--dark-shadow-color);
+}
+
+.board-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.board-content {
+  flex: 1;
+  padding: 2rem;
+}
+
+.board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+
+
+.filter-container {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.filter-input,
+.filter-select {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--card-background);
+  color: var(--text-color);
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(106, 90, 205, 0.3);
+}
+
+.add-task-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  background-color: var(--primary-color);
+  color: #fff;
+}
+
+.dark .add-task-btn {
+    color: #121212;
+    background-color: #fff; /* White for Dark Theme */
+}
+
+.add-task-btn:hover {
+  background-color: #00796b;
+  transform: translateY(-2px);
+}
+
+.theme-toggle-btn {
+  background-color: var(--card-background);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle-btn:hover {
+  background-color: var(--secondary-color);
+}
+
+.kanban-board {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.5rem 1rem 0 1rem;
+  flex-wrap: nowrap; /* Prevent wrapping */
+  box-sizing: border-box;
+}
+
+.kanban-column {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  padding: 18px 16px;
+  min-width: 260px;
+  max-width: 280px;
+  min-height: 160px;
+  flex: 0 0 260px; /* Fixed width, prevents growing */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.kanban-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.kanban-column-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.kanban-column-count {
+  background-color: var(--primary-color);
+  color: #fff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.kanban-column-cards {
+  flex-grow: 1;
+  min-height: 150px;
+}
+
+.kanban-card {
+  border-radius: 10px;
+  background-color: var(--card-background);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 6px var(--shadow-color);
+  transition: all 0.3s ease;
+  border-left: 5px solid;
+  display: flex;
+  flex-direction: column;
+}
+
+.kanban-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 24px var(--shadow-color);
+}
+
+.kanban-card.priority-high {
+  border-left-color: var(--high-priority);
+}
+.kanban-card.priority-medium {
+  border-left-color: var(--medium-priority);
+}
+.kanban-card.priority-low {
+  border-left-color: var(--low-priority);
+}
+
+.kanban-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.kanban-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.kanban-card-icons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kanban-card-icons span {
+    cursor: pointer;
+    opacity: 1; /* Make edit icon always visible */
+    transition: opacity 0.2s ease-in-out;
+    color: var(--text-color);
+}
+
+.dark .kanban-card-icons span {
+    color: #fff;
+}
+
+.dark .kanban-card {
+  border-top-color: var(--dark-border-color);
+}
+
+.kanban-card-footer .kanban-card-priority span {
+  color: var(--text-color); /* Inherit text color */
+}
+
+.dark .kanban-card-footer .kanban-card-priority span {
+  color: #fff; /* White color for priority text in dark theme */
+}
+
+.kanban-card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-color);
+  word-wrap: break-word;
+  white-space: normal;
+  word-break: break-all;
+}
+
+.kanban-card-date {
+  font-size: 0.7rem;
+  color: var(--text-secondary-color);
+}
+
+.kanban-card-icons input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.kanban-card-body {
+  margin-bottom: 1rem;
+}
+
+.kanban-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  font-size: 0.8rem;
+  color: var(--text-secondary-color);
+}
+
+.kanban-card-priority {
+  font-weight: 600;
+}
+
+.priority-text-high {
+  color: var(--high-priority);
+}
+
+.priority-text-medium {
+  color: var(--medium-priority);
+}
+
+.priority-text-low {
+  color: var(--low-priority);
+}
+
+.kanban-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.kanban-card-tag {
+  background: var(--secondary-color);
+  color: var(--text-secondary-color);
+  font-size: 0.7rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 16px;
+  font-weight: 500;
+}
+
+.dark .kanban-card-tag {
+  background: var(--dark-secondary-color);
+  color: var(--dark-text-secondary-color);
+}
+
+.kanban-card-logs {
+    width: 30%;
+    padding-left: 10px;
+    border-left: 1px solid var(--border-color);
+    font-size: 0.7rem;
+    color: var(--text-secondary-color);
+    overflow: auto;
+}
+
+.kanban-card-content {
+    width: 70%;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--card-background);
+  padding: 2rem;
+  border-radius: 16px;
+  max-width: 600px;
+  width: 90%;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  max-height: 80vh; /* Added to enable scrolling */
+  overflow-y: auto; /* Added to enable vertical scrolling */
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+.modal-content input,
+.modal-content textarea,
+.modal-content select {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--card-background);
+  color: var(--text-color);
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.modal-content input:focus,
+.modal-content textarea:focus,
+.modal-content select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(106, 90, 205, 0.3);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.modal-actions button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.modal-actions .btn-primary {
+  background-color: var(--primary-color);
+  color: #fff;
+}
+
+.modal-actions .btn-primary:hover {
+  background-color: #00796b;
+}
+
+.modal-actions .btn-secondary {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+}
+
+.modal-actions .btn-secondary:hover {
+  background-color: #ccc;
+}
+
+.side-panel {
+  width: 320px;
+  min-width: 240px;
+  max-width: 100vw;
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  padding: 1.5rem 1rem;
+  height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.side-panel-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+.side-panel-log {
+  margin-bottom: 1.5rem;
+}
+
+.side-panel-log-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.side-panel-log-details {
+  font-size: 0.9rem;
+  color: var(--text-secondary-color);
+  margin-bottom: 0.5rem;
+}
+
+.side-panel-log-time {
+  font-size: 0.8rem;
+  color: var(--text-secondary-color);
+}
+
+.side-panel-empty {
+  color: var(--text-secondary-color);
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2rem 2rem 0 2rem;
+  flex-wrap: wrap;
+}
+
+/* GitHub Integration Styles */
+.github-integration {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: var(--secondary-color);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.github-url {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.github-icon {
+  font-size: 1rem;
+}
+
+.github-link {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.github-link:hover {
+  text-decoration: underline;
+}
+
+.github-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.github-status.processing {
+  background-color: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #F59E0B;
+}
+
+.github-status.success {
+  background-color: #D1FAE5;
+  color: #065F46;
+  border: 1px solid #10B981;
+}
+
+.github-status.error {
+  background-color: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #EF4444;
+}
+
+.github-pr {
+  margin-top: 0.5rem;
+}
+
+.pr-link {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.pr-link:hover {
+  text-decoration: underline;
+}
+
+.github-changes {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary-color);
+}
+
+.github-error {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #991B1B;
+}
+
+/* Dark theme adjustments for GitHub integration */
+.dark .github-integration {
+  background-color: var(--dark-secondary-color);
+  border-color: var(--dark-border-color);
+}
+
+.dark .github-status.processing {
+  background-color: #451A03;
+  color: #FEF3C7;
+  border-color: #92400E;
+}
+
+.dark .github-status.success {
+  background-color: #022C22;
+  color: #D1FAE5;
+  border-color: #065F46;
+}
+
+.dark .github-status.error {
+  background-color: #450A0A;
+  color: #FEE2E2;
+  border-color: #991B1B;
+}
+
+/* File processing and AI-related styles that work with GitHub integration */
+.file-processing-status {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.file-processing-status.success {
+  background-color: #D1FAE5;
+  color: #065F46;
+  border: 1px solid #10B981;
+}
+
+.file-processing-status.error {
+  background-color: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #EF4444;
+}
+
+.processing-status {
+  text-align: center;
+  padding: 1.5rem;
+  background-color: var(--secondary-color);
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.processing-spinner {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.processing-text {
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+/* File upload section styling */
+.file-upload-section {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.file-upload-label {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--primary-color);
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.file-upload-label:hover {
+  background-color: #00796b;
+}
+
+.selected-files {
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  margin: 0.25rem 0;
+  background-color: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.file-name {
+  font-size: 0.9rem;
+  color: var(--text-color);
+}
+
+.remove-file-btn {
+  background: #EF4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.remove-file-btn:hover {
+  background: #DC2626;
+}
