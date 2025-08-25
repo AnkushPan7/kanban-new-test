@@ -92,9 +92,9 @@ app.post('/api/tasks', (req, res) => {
   const tagsString = Array.isArray(tags) ? tags.join(',') : '';
 
   db.run(
-    `INSERT INTO tasks (id, title, description, status, priority, tags, dueDate) 
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, title, description, status, priority, tagsString, dueDate],
+    `INSERT INTO tasks (id, title, description, status, priority, tags, dueDate, github_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, title, description, status, priority, tagsString, dueDate, githubUrl],
     function(err) {
       if (err) {
         res.status(500).json({ error: err.message });
@@ -128,7 +128,7 @@ app.post('/api/tasks', (req, res) => {
 
 app.put('/api/tasks/:id', (req, res) => {
   const { id } = req.params;
-  const { title, description, status, priority, tags, dueDate } = req.body;
+  const { title, description, status, priority, tags, dueDate, githubUrl } = req.body;
 
   const fields = [];
   const params = [];
@@ -156,6 +156,10 @@ app.put('/api/tasks/:id', (req, res) => {
   if (dueDate !== undefined) {
     fields.push('dueDate = ?');
     params.push(dueDate);
+  }
+  if (githubUrl !== undefined) {
+    fields.push('github_url = ?');
+    params.push(githubUrl);
   }
 
   if (fields.length === 0) {
