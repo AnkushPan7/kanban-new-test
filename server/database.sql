@@ -7,9 +7,12 @@ CREATE TABLE IF NOT EXISTS tasks (
   priority TEXT DEFAULT 'medium',
   tags TEXT,
   dueDate TEXT,
+  github_url TEXT,
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- The github_url column is defined in the CREATE TABLE statement above
 
 -- Create the columns table
 CREATE TABLE IF NOT EXISTS columns (
