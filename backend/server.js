@@ -79,15 +79,19 @@ app.post('/api/ai/process-file', upload.single('file'), async (req, res) => {
 
 async function processWithAI(content, instruction) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-pro"});
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro"});
 
-    const prompt = `You are an expert code and text editor. Your task is to modify the following text based on the user's description. Return only the modified text, without any extra comments or formatting like 
-Instruction: "${instruction}" 
-Original Text: 
+    const prompt = `You are an expert code editor. Your task is to analyze and modify code in a GitHub repository based on the user's task description. Follow these steps:
+1. Review the task description to identify the required code changes in the repository.
+2. Apply the necessary changes based on the task description.
+3. Return only the modified code related to the specified changes, without any extra comments or explanations.
+
+Instruction: "${instruction}"
+Task Description: 
 ---
 ${content}
 ---
-`;
+Return only the updated code as per the task description. Do not include any extra explanations, file names, or unnecessary formatting.`;
     console.log('--- Prompt sent to Gemini ---');
     console.log(prompt);
 

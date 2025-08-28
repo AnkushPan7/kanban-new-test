@@ -5,6 +5,7 @@ const fs = require('fs').promises;
 require('dotenv').config();
 const { glob } = require('glob');
 const axios = require('axios');
+const diff = require('diff');
 
 const app = express();
 app.use(express.json());
@@ -14,21 +15,48 @@ const REPO_DIR = path.join(__dirname, 'repos');
 // Ensure the repos directory exists
 fs.mkdir(REPO_DIR, { recursive: true });
 
-async function callAIAgent(prompt) {
-    // In a real implementation, you would call your AI model here.
-    // For this example, we'll return a dummy response.
+async function callAIAgent(prompt, repoPath) {
     console.log("AI Prompt:", prompt);
-    return {
-        data: {
-            choices: [
-                {
-                    message: {
-                        content: "```diff\n--- a/src/App.js\n+++ b/src/App.js\n@@ -1,11 +1,12 @@\n import logo from './logo.svg';\n import './App.css';\n+import Button from '@mui/material/Button';\n \n function App() {\n   return (\n     <div className=\"App\">\n       <header className=\"App-header\">\n         <img src={logo} className=\"App-logo\" alt=\"logo\" />\n         <p>\n-          Edit src/App.js and save to reload.\n+          Hello from Gemini!\n         </p>\n         <a\n           className=\"App-link\"\n           href=\"https://reactjs.org\"\n@@ -18,6 +19,7 @@\n         >\n           Learn React\n         </a>\n+        <Button variant=\"contained\">Hello World</Button>\n       </header>\n     </div>\n   );\n }\n```"
+
+    // Simple parser for the task description
+    const taskDescription = prompt.split('\n\n')[0];
+    const addMatch = taskDescription.match(/add\s+(.+?)\s+in\s+(.+?)\s+file/i);
+
+
+    if (!addMatch) {
+        console.error("Could not parse task description");
+        return { data: { choices: [{ message: { content: "Could not parse task description" } }] } };
+    }
+
+    const newContent = addMatch[1].replace(/`/g, '');
+    const filePath = addMatch[2].replace(/`/g, '');
+
+    const fullPath = path.join(repoPath, filePath);
+
+    try {
+        const originalContent = await fs.readFile(fullPath, 'utf-8');
+
+        // This is a very basic way to add the content at the end of the file.
+        // A more robust solution would use a proper parser for the file type.
+        const updatedContent = originalContent + '\n' + newContent;
+
+        const patch = diff.createPatch(filePath, originalContent, updatedContent);
+
+        return {
+            data: {
+                choices: [
+                    {
+                        message: {
+                            content: "```diff\n" + patch + "\n```"
+                        }
                     }
-                }
-            ]
-        }
-    };
+                ]
+            }
+        };
+    } catch (error) {
+        console.error("Error processing file:", error);
+        return { data: { choices: [{ message: { content: "Error processing file: " + error.message } }] } };
+    }
 }
 
 async function runAIAgent(repoPath, taskDescription, repoUrl) {
@@ -48,12 +76,13 @@ async function runAIAgent(repoPath, taskDescription, repoUrl) {
     } catch (error) {
         console.error('Error reading files with glob:', error);
     }
-    
+
     let fileContents = '';
     for (const file of files) {
         try {
             const content = await fs.readFile(path.join(repoPath, file), 'utf-8');
-            fileContents += `--- ${file} ---\n${content}\n\n`;
+            fileContents += `--- ${file} ---
+${content}\n\n`;
         } catch (error) {
             console.log(`Skipping file ${file}: ${error.message}`);
         }
@@ -65,45 +94,41 @@ async function runAIAgent(repoPath, taskDescription, repoUrl) {
 
     // 3. Call the AI model
     console.log('AI Agent: Calling AI model...');
-    const aiResponse = await callAIAgent(prompt);
-    const diff = aiResponse.data.choices[0].message.content;
+    const aiResponse = await callAIAgent(prompt, repoPath);
+    const diffContent = aiResponse.data.choices[0].message.content;
     console.log('AI Agent: AI model returned a diff.');
 
     // 4. Apply the diff
     console.log('AI Agent: Applying diff...');
-    console.log(diff);
-    const diffLines = diff.split('\n');
-    let currentFile = '';
-    let currentFileContent = '';
+    console.log(diffContent);
 
-    for (const line of diffLines) {
-        if (line.startsWith('--- a/')) {
-            if (currentFile) {
-                console.log(`AI Agent: Writing changes to ${currentFile}`);
-                await fs.writeFile(path.join(repoPath, currentFile), currentFileContent);
-            }
-            currentFile = line.substring(6);
-            try {
-                currentFileContent = await fs.readFile(path.join(repoPath, currentFile), 'utf-8');
-            } catch (e) {
-                console.error(`AI Agent: Error reading file ${currentFile}:`, e);
-                currentFileContent = '';
-            }
-        } else if (line.startsWith('+++ b/')) {
-            // ignore
-        } else if (line.startsWith('@@')) {
-            // ignore
-        } else if (line.startsWith('-')) {
-            currentFileContent = currentFileContent.replace(line.substring(1) + '\n', '');
-        } else if (line.startsWith('+')) {
-            currentFileContent += line.substring(1) + '\n';
+    if (diffContent.includes("Could not parse task description") || diffContent.includes("Error processing file")) {
+        console.error("Aborting due to error from AI agent.");
+        return;
+    }
+
+    try {
+        const patchContent = diffContent.substring(diffContent.indexOf('---'), diffContent.lastIndexOf('```')).trim();
+        const patchedFile = diff.parsePatch(patchContent)[0];
+        
+        const oldFileName = patchedFile.oldFileName.replace(/\\/g, '/');
+        const originalFilePath = path.join(repoPath, oldFileName);
+
+        const originalFileContent = await fs.readFile(originalFilePath, 'utf-8');
+        const appliedContent = diff.applyPatch(originalFileContent, patchContent);
+
+        if (appliedContent === false) {
+            console.error("Failed to apply patch");
+            return;
         }
+
+        await fs.writeFile(originalFilePath, appliedContent);
+
+        console.log('AI Agent: Diff applied successfully.');
+    } catch (error) {
+        console.error('Error applying patch:', error);
+        return;
     }
-    if (currentFile) {
-        console.log(`AI Agent: Writing changes to ${currentFile}`);
-        await fs.writeFile(path.join(repoPath, currentFile), currentFileContent);
-    }
-    console.log('AI Agent: Diff applied successfully.');
 
 
     // Now, let's commit and push the changes.
@@ -122,7 +147,7 @@ async function runAIAgent(repoPath, taskDescription, repoUrl) {
             console.error('AI Agent: GITHUB_TOKEN environment variable is not set. Skipping push.');
             return;
         }
-        
+
         const remoteUrlWithToken = repoUrl.replace('https://', `https://${token}@`);
 
         await git.push(remoteUrlWithToken, branchName, ['--set-upstream']);
