@@ -131,8 +131,47 @@ const Card = ({ card, onNext, onEdit, onComplete, onProcessWithAI, onDelete }) =
     );
   };
 
-  // Remove the manual AI processing button since it happens automatically
-  // const renderAIProcessingButton = () => { ... } - REMOVED
+  // README generation status display
+  const renderReadmeStatus = () => {
+    if (!card.readmeGeneration) return null;
+
+    const status = card.readmeGeneration.status;
+    
+    return (
+      <div className="readme-status">
+        {status === 'processing' && (
+          <div className="github-status processing">
+            <span className="status-icon">📝</span>
+            <span className="status-text">Generating README...</span>
+          </div>
+        )}
+        
+        {status === 'completed' && (
+          <div className="github-status success">
+            <span className="status-icon">✅</span>
+            <span className="status-text">README Generated</span>
+            {card.readmeGeneration.repoName && (
+              <div className="readme-info">
+                <small>📄 {card.readmeGeneration.repoName}_README.md</small>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {status === 'error' && (
+          <div className="github-status error">
+            <span className="status-icon">❌</span>
+            <span className="status-text">README generation failed</span>
+            {card.readmeGeneration.error && (
+              <div className="github-error">
+                <small>{card.readmeGeneration.error}</small>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className={`kanban-card priority-${card.priority.toLowerCase()}`}>
@@ -188,6 +227,7 @@ const Card = ({ card, onNext, onEdit, onComplete, onProcessWithAI, onDelete }) =
         {renderFileContent()}
         {renderFileProcessingStatus()}
         {renderGitHubStatus()}
+        {renderReadmeStatus()}
       </div>
       <div className="kanban-card-footer">
         <div className="kanban-card-priority">

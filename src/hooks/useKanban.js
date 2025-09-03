@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getTasks, getColumns, createTask as createTaskApi, updateTask as updateTaskApi, deleteTask as deleteTaskApi } from '../services/apiService';
 import aiAgent from '../services/aiService';
 import githubWorkflowService from '../services/githubWorkflowService';
+import readmeAgent from '../services/readmeAgentService';
 
 const useKanban = () => {
   const [data, setData] = useState({ columnOrder: [], columns: {}, cards: {} });
@@ -222,6 +223,67 @@ const useKanban = () => {
           columns: newColumns,
         };
       });
+
+      // If a GitHub URL is present, trigger README generation in background
+      if (newTask.githubUrl) {
+        console.log('🚀 Starting README generation for:', newTask.githubUrl);
+        
+        // Update task to show processing status
+        setData(prev => ({
+          ...prev,
+          cards: {
+            ...prev.cards,
+            [newTask.id]: {
+              ...prev.cards[newTask.id],
+              readmeGeneration: {
+                status: 'processing',
+                startedAt: new Date().toISOString()
+              }
+            }
+          }
+        }));
+
+        (async () => {
+          try {
+            const result = await readmeAgent.generateReadme(newTask.githubUrl);
+            console.log('✅ README generation completed:', result);
+            
+            // Update task with successful result
+            setData(prev => ({
+              ...prev,
+              cards: {
+                ...prev.cards,
+                [newTask.id]: {
+                  ...prev.cards[newTask.id],
+                  readmeGeneration: {
+                    status: 'completed',
+                    result,
+                    completedAt: new Date().toISOString(),
+                    savedPath: result.savedPath,
+                    repoName: result.repoName
+                  }
+                }
+              }
+            }));
+          } catch (err) {
+            console.error('❌ README generation failed:', err);
+            setData(prev => ({
+              ...prev,
+              cards: {
+                ...prev.cards,
+                [newTask.id]: {
+                  ...prev.cards[newTask.id],
+                  readmeGeneration: {
+                    status: 'error',
+                    error: err.message,
+                    completedAt: new Date().toISOString()
+                  }
+                }
+              }
+            }));
+          }
+        })();
+      }
     } catch (error) {
       console.error("Error creating task:", error);
     }
