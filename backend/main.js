@@ -46,9 +46,52 @@ if (process.env.GROQ_API_KEY) {
 const REPO_DIR = path.join(__dirname, 'repos');
 const GENERATED_READMES_DIR = path.join(__dirname, 'generated_readmes');
 
-// Ensure the repos and generated_readmes directories exist
+// Ensure the directories exist
 fs.mkdir(REPO_DIR, { recursive: true });
 fs.mkdir(GENERATED_READMES_DIR, { recursive: true });
+
+// Simple in-memory activity tracking for UI
+class SimpleActivityTracker {
+    constructor() {
+        this.recentActivities = [];
+    }
+
+    addActivity(taskDescription, filesChanged, totalLinesAdded, totalLinesRemoved, files, repository) {
+        const activity = {
+            id: Date.now().toString(),
+            timestamp: new Date().toISOString(),
+            taskDescription: taskDescription.substring(0, 80) + (taskDescription.length > 80 ? '...' : ''),
+            repository,
+            filesChanged,
+            totalLinesAdded,
+            totalLinesRemoved,
+            // Clear file names for UI display
+            changedFiles: files.map(f => f.file).join(', '), // Simple comma-separated list
+            files: files.map(f => ({
+                name: f.file,
+                linesAdded: f.linesAdded,
+                linesRemoved: f.linesRemoved,
+                isNewFile: f.isNewFile
+            }))
+        };
+
+        this.recentActivities.unshift(activity); // Add to beginning
+        
+        // Keep only last 20 activities for UI
+        if (this.recentActivities.length > 20) {
+            this.recentActivities = this.recentActivities.slice(0, 20);
+        }
+
+        return activity;
+    }
+
+    getRecentActivities() {
+        return this.recentActivities;
+    }
+}
+
+// Initialize simple activity tracker
+const activityTracker = new SimpleActivityTracker();
 
 async function callAIAgent(taskDescription, repoPath, fullRepoContent, maxRetries = 3) {
     console.log("AI Agent: Processing task with AI...");
@@ -566,6 +609,8 @@ ${truncated}
         throw new Error(diffContent);
     }
 
+    let changesSummary = null;
+
     try {
         // Extract diff content (remove any markdown code blocks)
         let patchContent = diffContent;
@@ -581,6 +626,11 @@ ${truncated}
         const patches = diff.parsePatch(patchContent);
         console.log(`Found ${patches.length} patch(es) to apply`);
 
+        // Track file changes for activity log
+        const changedFiles = [];
+        let totalLinesAdded = 0;
+        let totalLinesRemoved = 0;
+
         for (const patch of patches) {
             if (!patch || !patch.oldFileName) {
                 console.log('Skipping invalid patch');
@@ -594,11 +644,13 @@ ${truncated}
 
             // Read original file content
             let originalFileContent;
+            let isNewFile = false;
             try {
                 originalFileContent = await fs.readFile(originalFilePath, 'utf-8');
             } catch (readError) {
                 console.log(`File ${oldFileName} doesn't exist, creating new file`);
                 originalFileContent = '';
+                isNewFile = true;
             }
 
             // Apply the patch
@@ -619,14 +671,55 @@ ${truncated}
             // Write the updated content
             await fs.writeFile(originalFilePath, appliedContent);
             console.log(`Successfully updated: ${oldFileName}`);
+
+            // Track changes for activity log
+            const linesAdded = patch.hunks.reduce((acc, hunk) => acc + hunk.lines.filter(line => line.startsWith('+')).length, 0);
+            const linesRemoved = patch.hunks.reduce((acc, hunk) => acc + hunk.lines.filter(line => line.startsWith('-')).length, 0);
+            
+            totalLinesAdded += linesAdded;
+            totalLinesRemoved += linesRemoved;
+
+            changedFiles.push({
+                file: oldFileName,
+                linesAdded,
+                linesRemoved,
+                isNewFile,
+                size: appliedContent.length
+            });
         }
 
         console.log('AI Agent: All diffs applied successfully.');
 
+        // Track file changes for UI activity panel
+        if (changedFiles.length > 0) {
+            activityTracker.addActivity(
+                taskDescription,
+                changedFiles.length,
+                totalLinesAdded,
+                totalLinesRemoved,
+                changedFiles,
+                path.basename(repoPath)
+            );
+        }
+
+        // Return change summary for response
+        changesSummary = {
+            filesChanged: changedFiles.length,
+            totalLinesAdded,
+            totalLinesRemoved,
+            files: changedFiles
+        };
+
     } catch (error) {
         console.error('Error applying patch:', error);
         console.error('AI Response was:', diffContent);
-        return;
+        changesSummary = {
+            filesChanged: 0,
+            totalLinesAdded: 0,
+            totalLinesRemoved: 0,
+            files: [],
+            error: error.message
+        };
     }
 
 
@@ -658,6 +751,8 @@ ${truncated}
     }
 
     console.log('AI Agent: Task processing complete.');
+    
+    return changesSummary;
 }
 
 // Removed smart task planning - now always doing full repository analysis
@@ -786,7 +881,7 @@ app.post('/api/tasks', async (req, res) => {
 
         // 3. Execute the specific user task
         console.log('Step 3: Executing user task...');
-        await runAIAgent(repoPath, taskDescription, repoUrl);
+        const changesSummary = await runAIAgent(repoPath, taskDescription, repoUrl);
 
         res.status(200).json({
             message: 'Task processed successfully with smart update system.',
@@ -802,6 +897,7 @@ app.post('/api/tasks', async (req, res) => {
                 path: readmeResult.readmePath,
                 updated: readmeResult.updated !== false
             },
+            changes: changesSummary,
             readmeContent: readmeResult.readmeContent ? readmeResult.readmeContent.substring(0, 500) + '...' : 'Generated'
         });
 
@@ -850,6 +946,20 @@ app.post('/api/generate-readme', async (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {   
     console.log(`Server running on port ${PORT}`);   
+});
+
+// Simple Activity Endpoint for UI Right Panel
+app.get('/api/activity', async (req, res) => {
+    try {
+        const activities = activityTracker.getRecentActivities();
+        res.status(200).json({
+            activities,
+            total: activities.length
+        });
+    } catch (error) {
+        console.error('Failed to fetch activities:', error);
+        res.status(500).json({ error: 'Failed to fetch activity logs' });
+    }
 });
 
 // --- Test endpoint for development ---

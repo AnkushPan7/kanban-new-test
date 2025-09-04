@@ -5,11 +5,6 @@ import TaskModal from './TaskModal';
 import useKanban from '../hooks/useKanban';
 import SidePanel from './SidePanel';
 
-const logs = [
-  { title: 'File Changed', details: 'package-lock.json updated', time: '2 min ago' },
-  { title: 'Branch Created', details: 'feature/new-ui', time: '10 min ago' },
-];
-
 const Board = ({ theme, toggleTheme }) => {
   const { 
     data, 
@@ -102,7 +97,7 @@ const Board = ({ theme, toggleTheme }) => {
           />
         )}
       </div>
-      <SidePanel logs={logs} />
+      <SidePanel />
     </div>
   );
 };
