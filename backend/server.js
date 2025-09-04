@@ -37,8 +37,10 @@ if (process.env.GROQ_API_KEY) {
 // --- Directory Setup ---
 const REPOS_DIR = path.join(__dirname, 'repos');
 const TEMP_DIR = path.join(__dirname, 'temp_clones');
+const GENERATED_READMES_DIR = path.join(__dirname, 'generated_readmes');
 fs.mkdirSync(REPOS_DIR, { recursive: true });
 fs.mkdirSync(TEMP_DIR, { recursive: true });
+fs.mkdirSync(GENERATED_READMES_DIR, { recursive: true });
 
 // --- GitHub Setup ---
 if (!process.env.GITHUB_TOKEN) {
@@ -980,10 +982,9 @@ app.post('/api/readme/generate', async (req, res) => {
     console.log('Generating README...');
     const readmeContent = await generateReadmeWithFallback(analysis, repoUrl);
     
-    // 4. Save README file to repos folder only (not the entire repository)
+    // 4. Save README file to centralized generated_readmes directory (one per repository)
     const repoName = path.basename(repoUrl, '.git');
-    const timestamp = Date.now();
-    const readmeFilePath = path.join(REPOS_DIR, `${repoName}_README_${timestamp}.md`);
+    const readmeFilePath = path.join(GENERATED_READMES_DIR, `${repoName}_README.md`);
     
     console.log(`Saving README to: ${readmeFilePath}`);
     await fs.promises.writeFile(readmeFilePath, readmeContent);

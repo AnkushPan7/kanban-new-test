@@ -39,15 +39,16 @@ if (process.env.GROQ_API_KEY) {
   groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,
   });
-  console.log('✅ Groq API initialized for AI processing');
 } else {
   console.warn('WARNING: GROQ_API_KEY is not set. AI processing will use Gemini fallback.');
 }
 
 const REPO_DIR = path.join(__dirname, 'repos');
+const GENERATED_READMES_DIR = path.join(__dirname, 'generated_readmes');
 
-// Ensure the repos directory exists
+// Ensure the repos and generated_readmes directories exist
 fs.mkdir(REPO_DIR, { recursive: true });
+fs.mkdir(GENERATED_READMES_DIR, { recursive: true });
 
 async function callAIAgent(taskDescription, repoPath, fullRepoContent, maxRetries = 3) {
     console.log("AI Agent: Processing task with AI...");
@@ -194,20 +195,83 @@ async function callAIAgentForReadmeOpenAI(fullRepoContent, repoUrl, maxRetries =
 
     console.log("AI Agent: Generating README with OpenAI...");
 
-    const prompt = `You are a Repository Documentation Specialist. Analyze the repository contents below and generate a comprehensive README.md for the project.
+    const prompt = `Analyze the repository and generate a complete README.md file. Return ONLY the README content, no explanations or preambles.
 
-Repository URL (if provided): ${repoUrl || 'N/A'}
+Repository URL: ${repoUrl || 'N/A'}
 
-Repository File Snapshot (truncated/combined for context):
+Repository Files and Content:
 ${fullRepoContent}
 
-Requirements:
-- Produce a complete README.md in GitHub-friendly Markdown.
-- Include: Title, Overview, Tech Stack, Project Structure (tree with brief descriptions), Key Features, Setup & Installation, Configuration, Scripts/Commands, Usage examples, API/endpoints (if applicable), Notable modules/functions with brief purposes, Testing, Deployment, Contributing, License, and a small Roadmap/TODO.
-- Reflect actual files and functions where possible from the snapshot.
-- If something is uncertain, add a short TODO note instead of hallucinating.
-- Keep it concise but thorough, optimized for quick onboarding.
-`;
+Generate a comprehensive README.md that includes ALL of the following sections:
+
+# [Project Name]
+
+## Table of Contents
+- [Overview](#overview)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [API Documentation](#api-documentation)
+- [Key Components](#key-components)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Overview
+[Describe what this project does based on the code analysis]
+
+## Technology Stack
+[List ALL technologies, frameworks, libraries found in package.json and imports]
+
+## Project Structure
+\`\`\`
+[Complete directory tree with descriptions]
+\`\`\`
+
+## Features
+[List all major functionality found in the code]
+
+## Prerequisites
+[System requirements based on package.json]
+
+## Installation
+[Step-by-step setup instructions]
+
+## Configuration
+[Environment variables and config files found]
+
+## Usage
+[Code examples and usage instructions]
+
+## API Documentation
+[All endpoints and their documentation if any found]
+
+## Key Components
+[Important functions, classes, and modules with purposes]
+
+## Testing
+[Testing setup and commands from package.json scripts]
+
+## Deployment
+[Build and deployment instructions]
+
+## Contributing
+[Guidelines for contributors]
+
+## License
+[License information]
+
+IMPORTANT: 
+- Return ONLY the markdown content
+- Start directly with the project title (# [Project Name])
+- Do NOT include any explanatory text before or after
+- Analyze ALL files in the repository thoroughly
+- Include specific details from the actual code files`;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -259,20 +323,83 @@ async function callAIAgentForReadme(fullRepoContent, repoUrl, maxRetries = 3) {
     
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro"});
 
-    const prompt = `You are a Repository Documentation Specialist. Analyze the repository contents below and generate a comprehensive README.md for the project.
+    const prompt = `Analyze the repository and generate a complete README.md file. Return ONLY the README content, no explanations or preambles.
 
-Repository URL (if provided): ${repoUrl || 'N/A'}
+Repository URL: ${repoUrl || 'N/A'}
 
-Repository File Snapshot (truncated/combined for context):
+Repository Files and Content:
 ${fullRepoContent}
 
-Requirements:
-- Produce a complete README.md in GitHub-friendly Markdown.
-- Include: Title, Overview, Tech Stack, Project Structure (tree with brief descriptions), Key Features, Setup & Installation, Configuration, Scripts/Commands, Usage examples, API/endpoints (if applicable), Notable modules/functions with brief purposes, Testing, Deployment, Contributing, License, and a small Roadmap/TODO.
-- Reflect actual files and functions where possible from the snapshot.
-- If something is uncertain, add a short TODO note instead of hallucinating.
-- Keep it concise but thorough, optimized for quick onboarding.
-`;
+Generate a comprehensive README.md that includes ALL of the following sections:
+
+# [Project Name]
+
+## Table of Contents
+- [Overview](#overview)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [API Documentation](#api-documentation)
+- [Key Components](#key-components)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Overview
+[Describe what this project does based on the code analysis]
+
+## Technology Stack
+[List ALL technologies, frameworks, libraries found in package.json and imports]
+
+## Project Structure
+\`\`\`
+[Complete directory tree with descriptions]
+\`\`\`
+
+## Features
+[List all major functionality found in the code]
+
+## Prerequisites
+[System requirements based on package.json]
+
+## Installation
+[Step-by-step setup instructions]
+
+## Configuration
+[Environment variables and config files found]
+
+## Usage
+[Code examples and usage instructions]
+
+## API Documentation
+[All endpoints and their documentation if any found]
+
+## Key Components
+[Important functions, classes, and modules with purposes]
+
+## Testing
+[Testing setup and commands from package.json scripts]
+
+## Deployment
+[Build and deployment instructions]
+
+## Contributing
+[Guidelines for contributors]
+
+## License
+[License information]
+
+IMPORTANT: 
+- Return ONLY the markdown content
+- Start directly with the project title (# [Project Name])
+- Do NOT include any explanatory text before or after
+- Analyze ALL files in the repository thoroughly
+- Include specific details from the actual code files`;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -336,7 +463,12 @@ async function generateReadmeForRepo(repoPath, repoUrl) {
     }
 
     let fileContents = '';
+    const MAX_TOTAL_LENGTH = 100000; // 100k characters limit
     for (const file of files) {
+        if (fileContents.length > MAX_TOTAL_LENGTH) {
+            console.log('AI Agent: Reached total content limit, stopping file reading.');
+            break;
+        }
         try {
             // Limit very large files to avoid token overload
             const content = await fs.readFile(path.join(repoPath, file), 'utf-8');
@@ -352,17 +484,11 @@ ${truncated}
 
     const readmeContent = await callAIAgentForReadme(fileContents, repoUrl);
 
-    const readmePath = path.join(repoPath, 'README.md');
-    // Backup existing README if present
-    try {
-        const existing = await fs.readFile(readmePath, 'utf-8');
-        if (existing) {
-            await fs.writeFile(path.join(repoPath, `README.backup.${Date.now()}.md`), existing, 'utf-8');
-        }
-    } catch (_) {
-        // no existing README
-    }
-
+    // Save to centralized generated_readmes directory (one file per repository)
+    const repoName = path.basename(repoUrl, '.git');
+    const readmePath = path.join(GENERATED_READMES_DIR, `${repoName}_README.md`);
+    
+    console.log(`Saving generated README to: ${readmePath}`);
     await fs.writeFile(readmePath, readmeContent, 'utf-8');
 
     // Optionally create a branch and push
@@ -380,10 +506,10 @@ ${truncated}
         }
         const remoteUrlWithToken = repoUrl.replace('https://', `https://${token}@`);
         await git.push(remoteUrlWithToken, branchName, ['--set-upstream']);
-        return { readmeContent, branchName, pushed: true };
+        return { readmeContent, readmePath, branchName, pushed: true };
     } catch (err) {
         console.error('AI Agent: Error committing/pushing README:', err.message);
-        return { readmeContent, branchName: null, pushed: false, error: err.message };
+        return { readmeContent, readmePath, branchName: null, pushed: false, error: err.message };
     }
 }
 
@@ -391,8 +517,8 @@ async function runAIAgent(repoPath, taskDescription, repoUrl) {
     console.log('AI Agent: Received task:', taskDescription);
     console.log('AI Agent: Repository path:', repoPath);
 
-    // 1. Read all files in the repository
-    console.log('AI Agent: Reading files...');
+    // 1. Always read all files in the repository for complete context
+    console.log('AI Agent: Reading all files in the repository for complete analysis...');
     let files = [];
     try {
         const foundFiles = await glob('**/*', { cwd: repoPath, ignore: ['node_modules/**', '.git/**'], nodir: true });
@@ -406,11 +532,17 @@ async function runAIAgent(repoPath, taskDescription, repoUrl) {
     }
 
     let fileContents = '';
+    const MAX_TOTAL_LENGTH = 100000; // 100k characters limit
     for (const file of files) {
+        if (fileContents.length > MAX_TOTAL_LENGTH) {
+            console.log('AI Agent: Reached total content limit, stopping file reading.');
+            break;
+        }
         try {
             const content = await fs.readFile(path.join(repoPath, file), 'utf-8');
+            const truncated = content.length > 8000 ? content.slice(0, 8000) + "\n\n/* …truncated… */" : content;
             fileContents += `--- ${file} ---
-${content}
+${truncated}
 
 `;
         } catch (error) {
@@ -470,7 +602,7 @@ ${content}
             }
 
             // Apply the patch
-            const appliedContent = diff.applyPatch(originalFileContent, patchContent);
+            const appliedContent = diff.applyPatch(originalFileContent, patch);
 
             if (appliedContent === false) {
                 console.error(`Failed to apply patch to ${oldFileName}`);
@@ -528,6 +660,71 @@ ${content}
     console.log('AI Agent: Task processing complete.');
 }
 
+// Removed smart task planning - now always doing full repository analysis
+
+// Smart repository and README update system
+async function checkRepositoryUpdates(repoPath, repoUrl) {
+    console.log("AI Agent: Checking for repository updates...");
+    
+    try {
+        const git = simpleGit(repoPath);
+        
+        // Fetch latest changes from remote
+        await git.fetch();
+        
+        // Get the current branch name and check if local is behind remote
+        const status = await git.status();
+        const currentBranch = status.current || 'main';
+        const localCommit = await git.revparse(['HEAD']);
+        
+        // Try to get remote commit (handle both main/master)
+        let remoteCommit;
+        try {
+            remoteCommit = await git.revparse([`origin/${currentBranch}`]);
+        } catch (error) {
+            // Fallback to main or master
+            try {
+                remoteCommit = await git.revparse(['origin/main']);
+            } catch {
+                remoteCommit = await git.revparse(['origin/master']);
+            }
+        }
+        
+        const hasUpdates = localCommit !== remoteCommit;
+        
+        if (hasUpdates) {
+            console.log("AI Agent: Repository has updates, pulling latest changes...");
+            await git.pull();
+            return { updated: true, localCommit, remoteCommit };
+        } else {
+            console.log("AI Agent: Repository is up to date");
+            return { updated: false, localCommit, remoteCommit };
+        }
+    } catch (error) {
+        console.error("AI Agent: Error checking repository updates:", error.message);
+        // If error, assume we need to update
+        return { updated: true, error: error.message };
+    }
+}
+
+async function shouldRegenerateReadme(repoPath, readmePath, repoUpdated) {
+    // Check if README exists for this repository
+    try {
+        await fs.access(readmePath);
+        
+        if (repoUpdated) {
+            console.log("AI Agent: Repository was updated, updating existing README");
+            return true;
+        } else {
+            console.log("AI Agent: README exists and repository unchanged, using existing README");
+            return false;
+        }
+    } catch {
+        console.log("AI Agent: README doesn't exist for this repository, generating new one");
+        return true;
+    }
+}
+
 app.post('/api/tasks', async (req, res) => {
     const { repoUrl, taskDescription } = req.body;
 
@@ -536,27 +733,76 @@ app.post('/api/tasks', async (req, res) => {
     }
 
     try {
-        // 1. Clone the repository
         const repoName = path.basename(repoUrl, '.git');
         const repoPath = path.join(REPO_DIR, repoName);
+        // One README file per repository (no date in filename)
+        const readmePath = path.join(GENERATED_READMES_DIR, `${repoName}_README.md`);
 
-        // Clean up previous clone if it exists
-        await fs.rm(repoPath, { recursive: true, force: true });
+        let repoCloned = false;
+        let repoUpdated = false;
+        let readmeResult = null;
 
-        const git = simpleGit();
-        console.log(`Cloning repository: ${repoUrl}`);
-        await git.clone(repoUrl, repoPath);
+        // 1. Check if repository exists locally
+        try {
+            await fs.access(repoPath);
+            console.log(`Repository exists locally at: ${repoPath}`);
+            
+            // Check for updates
+            const updateResult = await checkRepositoryUpdates(repoPath, repoUrl);
+            repoUpdated = updateResult.updated;
+            
+        } catch {
+            // Repository doesn't exist, clone it
+            console.log('Step 1: Cloning repository...');
+            const git = simpleGit();
+            await git.clone(repoUrl, repoPath);
+            console.log(`Repository cloned to ${repoPath}`);
+            repoCloned = true;
+            repoUpdated = true; // New clone means "updated"
+        }
 
-        console.log(`Repository cloned to ${repoPath}`);
+        // 2. Check if we need to generate/regenerate README
+        const needReadmeGeneration = await shouldRegenerateReadme(repoPath, readmePath, repoUpdated);
+        
+        if (needReadmeGeneration) {
+            console.log('Step 2: Generating comprehensive README (repository has changes or README missing)...');
+            readmeResult = await generateReadmeForRepo(repoPath, repoUrl);
+            console.log(`Comprehensive README generated and saved to: ${readmeResult.readmePath}`);
+        } else {
+            console.log('Step 2: Using existing README (no repository changes detected)...');
+            try {
+                const existingReadme = await fs.readFile(readmePath, 'utf-8');
+                readmeResult = { 
+                    readmeContent: existingReadme, 
+                    readmePath: readmePath,
+                    updated: false
+                };
+            } catch (error) {
+                // Fallback - generate README if reading existing fails
+                console.log('Failed to read existing README, generating new one...');
+                readmeResult = await generateReadmeForRepo(repoPath, repoUrl);
+            }
+        }
 
-        // 2. Run the AI Agent with direct processing
-        console.log('Starting direct AI processing...');
+        // 3. Execute the specific user task
+        console.log('Step 3: Executing user task...');
         await runAIAgent(repoPath, taskDescription, repoUrl);
 
         res.status(200).json({
-            message: 'Task processed successfully with direct AI.',
+            message: 'Task processed successfully with smart update system.',
             repository: repoUrl,
-            taskDescription: taskDescription.substring(0, 100) + '...'
+            taskDescription: taskDescription.substring(0, 100) + '...',
+            repositoryStatus: {
+                existed: !repoCloned,
+                cloned: repoCloned,
+                updated: repoUpdated
+            },
+            readmeStatus: {
+                generated: needReadmeGeneration,
+                path: readmeResult.readmePath,
+                updated: readmeResult.updated !== false
+            },
+            readmeContent: readmeResult.readmeContent ? readmeResult.readmeContent.substring(0, 500) + '...' : 'Generated'
         });
 
     } catch (error) {
