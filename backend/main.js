@@ -93,6 +93,213 @@ class SimpleActivityTracker {
 // Initialize simple activity tracker
 const activityTracker = new SimpleActivityTracker();
 
+// Add some sample activities for testing (remove this in production)
+activityTracker.addActivity(
+    "Add dark mode toggle functionality",
+    2,
+    45,
+    12,
+    [
+        { file: "src/App.js", linesAdded: 25, linesRemoved: 5, isNewFile: false },
+        { file: "src/App.css", linesAdded: 20, linesRemoved: 7, isNewFile: false }
+    ],
+    "vibe-temp"
+);
+
+activityTracker.addActivity(
+    "Fix responsive navigation menu",
+    1,
+    15,
+    8,
+    [
+        { file: "src/components/Navigation.js", linesAdded: 15, linesRemoved: 8, isNewFile: false }
+    ],
+    "kanban-app"
+);
+
+// ===== PLANNING AI AGENT - Agent #2 =====
+// Specialized agent for analyzing tasks and planning file changes using README
+async function callPlanningAgent(taskDescription, readmeContent, maxRetries = 3) {
+    console.log("Planning Agent: Analyzing task complexity and required files...");
+    
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro"});
+
+    const prompt = `You are a specialized Code Planning Agent. Analyze the user task and determine what files need modification based on the repository structure shown in the README.
+
+TASK TO IMPLEMENT:
+"${taskDescription}"
+
+REPOSITORY STRUCTURE AND INFO (from README.md):
+${readmeContent}
+
+YOUR JOB:
+1. Study the repository structure and existing files mentioned in the README
+2. For the given task, identify exactly which files need to be modified
+3. Determine the complexity and confidence level
+4. Return a precise JSON response
+
+EXAMPLE ANALYSIS:
+- If task is "Add dark mode toggle": Look for React components, CSS files, main App files
+- If task is "Add new API endpoint": Look for backend routes, controllers, middleware files
+- If task is "Fix button styling": Look for CSS files, component files with that button
+
+REQUIRED JSON RESPONSE FORMAT:
+{
+    "complexity": "simple",
+    "estimatedFiles": ["src/App.js", "src/App.css"],
+    "reasoning": "Dark mode toggle requires state management in App.js and CSS styling in App.css",
+    "confidence": "high",
+    "taskType": "feature",
+    "estimatedLines": 50,
+    "dependencies": [],
+    "riskLevel": "low"
+}
+
+COMPLEXITY RULES:
+- simple: 1-3 files, straightforward changes (UI changes, styling, simple features)
+- moderate: 4-8 files, some architecture changes (new components, API integration)
+- complex: 9+ files, major refactoring or new architecture
+
+CONFIDENCE RULES:
+- high: Task is clear and files are obvious from project structure
+- medium: Task requires some interpretation but files are identifiable
+- low: Task is ambiguous and requires exploration
+
+CRITICAL: Return ONLY valid JSON. No explanations, no markdown, just JSON.`;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`Planning Agent: Analyzing task (attempt ${attempt}/${maxRetries})...`);
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const aiResponse = response.text();
+
+            // Extract JSON from response (more robust parsing)
+            let jsonString = aiResponse.trim();
+            
+            // Remove markdown code blocks if present
+            if (jsonString.includes('```json')) {
+                jsonString = jsonString.split('```json')[1].split('```')[0].trim();
+            } else if (jsonString.includes('```')) {
+                jsonString = jsonString.split('```')[1].split('```')[0].trim();
+            }
+            
+            // Extract JSON object
+            const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                try {
+                    const plan = JSON.parse(jsonMatch[0]);
+                    
+                    // Validate required fields
+                    if (!plan.complexity || !plan.estimatedFiles || !plan.confidence) {
+                        throw new Error("Planning response missing required fields");
+                    }
+                    
+                    console.log("Planning Agent: Task analysis complete");
+                    console.log("Planning Agent: Complexity:", plan.complexity);
+                    console.log("Planning Agent: Estimated files:", plan.estimatedFiles?.length || 0);
+                    console.log("Planning Agent: Confidence:", plan.confidence);
+                    
+                    return plan;
+                } catch (parseError) {
+                    console.error("Planning Agent: JSON parsing failed:", parseError.message);
+                    throw new Error(`Could not parse planning response as JSON: ${parseError.message}`);
+                }
+            } else {
+                console.error("Planning Agent: No JSON found in response:", aiResponse.substring(0, 200));
+                throw new Error("Could not find JSON in planning response");
+            }
+            
+        } catch (error) {
+            console.error(`Planning Agent: Attempt ${attempt} failed:`, error.message);
+            
+            if (error.message.includes('429') || error.message.includes('quota')) {
+                // Try OpenAI fallback if available
+                if (openai && attempt === maxRetries) {
+                    try {
+                        console.log("Planning Agent: Falling back to OpenAI...");
+                        return await callPlanningAgentOpenAI(taskDescription, readmeContent);
+                    } catch (openaiError) {
+                        console.error("Planning Agent: OpenAI fallback failed:", openaiError.message);
+                    }
+                }
+            }
+            
+            if (attempt < maxRetries) {
+                const delay = Math.pow(2, attempt) * 1000;
+                console.log(`Planning Agent: Retrying in ${delay/1000} seconds...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+            
+            // Return fallback plan if all attempts fail
+            console.error("Planning Agent: All attempts failed, returning fallback plan");
+            return {
+                complexity: "moderate",
+                estimatedFiles: [],
+                reasoning: `Planning failed: ${error.message}. Will proceed with full repository analysis.`,
+                confidence: "low",
+                taskType: "unknown",
+                estimatedLines: 0,
+                dependencies: [],
+                riskLevel: "medium"
+            };
+        }
+    }
+}
+
+// OpenAI fallback for Planning Agent
+async function callPlanningAgentOpenAI(taskDescription, readmeContent, maxRetries = 3) {
+    if (!openai) {
+        throw new Error('OpenAI client not initialized - OPENAI_API_KEY not set');
+    }
+
+    console.log("Planning Agent: Using OpenAI for task analysis...");
+
+    const prompt = `You are a specialized Code Planning Agent. Analyze the task and determine what files need modification.
+
+TASK: ${taskDescription}
+
+REPOSITORY INFO:
+${readmeContent}
+
+Return JSON with: complexity, estimatedFiles, reasoning, confidence, taskType, estimatedLines, dependencies, riskLevel.
+Complexity: simple (1-3 files), moderate (4-8 files), complex (9+ files).
+Return ONLY valid JSON.`;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const completion = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                max_tokens: 1000,
+                messages: [{ role: 'user', content: prompt }]
+            });
+
+            const aiResponse = completion.choices[0].message.content;
+            const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+            
+            if (jsonMatch) {
+                const plan = JSON.parse(jsonMatch[0]);
+                console.log("Planning Agent: OpenAI analysis complete");
+                return plan;
+            } else {
+                throw new Error("Could not parse OpenAI response as JSON");
+            }
+            
+        } catch (error) {
+            console.error(`Planning Agent OpenAI attempt ${attempt} failed:`, error.message);
+            
+            if (attempt < maxRetries) {
+                const delay = Math.pow(2, attempt) * 1000;
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+            
+            throw error;
+        }
+    }
+}
+
 async function callAIAgent(taskDescription, repoPath, fullRepoContent, maxRetries = 3) {
     console.log("AI Agent: Processing task with AI...");
     console.log("Task:", taskDescription);
@@ -534,44 +741,72 @@ ${truncated}
     console.log(`Saving generated README to: ${readmePath}`);
     await fs.writeFile(readmePath, readmeContent, 'utf-8');
 
-    // Optionally create a branch and push
-    try {
-        const git = simpleGit(repoPath);
-        const branchName = `readme-ai-${Date.now()}`;
-        await git.checkoutLocalBranch(branchName);
-        await git.add('README.md');
-        await git.commit('docs: generate README via AI agent');
-
-        const token = process.env.GITHUB_TOKEN;
-        if (!token) {
-            console.warn('AI Agent: GITHUB_TOKEN not set. Skipping push.');
-            return { readmeContent, branchName, pushed: false };
-        }
-        const remoteUrlWithToken = repoUrl.replace('https://', `https://${token}@`);
-        await git.push(remoteUrlWithToken, branchName, ['--set-upstream']);
-        return { readmeContent, readmePath, branchName, pushed: true };
-    } catch (err) {
-        console.error('AI Agent: Error committing/pushing README:', err.message);
-        return { readmeContent, readmePath, branchName: null, pushed: false, error: err.message };
-    }
+    // README generated successfully - no branch creation needed
+    console.log('AI Agent: README content generated and saved locally for planning context');
+    return { readmeContent, readmePath, branchCreated: false, pushed: false };
 }
 
-async function runAIAgent(repoPath, taskDescription, repoUrl) {
-    console.log('AI Agent: Received task:', taskDescription);
-    console.log('AI Agent: Repository path:', repoPath);
+// ===== EXECUTION AI AGENT - Agent #3 (Enhanced with Planning) =====
+async function runAIAgent(repoPath, taskDescription, repoUrl, taskPlan = null) {
+    console.log('Execution Agent: Received task:', taskDescription);
+    console.log('Execution Agent: Repository path:', repoPath);
 
-    // 1. Always read all files in the repository for complete context
-    console.log('AI Agent: Reading all files in the repository for complete analysis...');
+    // 1. Smart file reading based on planning results
     let files = [];
-    try {
-        const foundFiles = await glob('**/*', { cwd: repoPath, ignore: ['node_modules/**', '.git/**'], nodir: true });
-        if (Array.isArray(foundFiles)) {
-            files = foundFiles;
-        } else {
-            console.log('Warning: glob did not return an array. Result:', foundFiles);
+    if (taskPlan && taskPlan.estimatedFiles && taskPlan.estimatedFiles.length > 0 && taskPlan.confidence !== 'low') {
+        console.log('Execution Agent: Using targeted file reading based on Planning Agent results...');
+        console.log('Execution Agent: Target files from plan:', taskPlan.estimatedFiles);
+        
+        // Use planned files + some additional context files
+        const plannedFiles = taskPlan.estimatedFiles;
+        const contextFiles = ['package.json', 'README.md', 'tsconfig.json', '.env.example']; // Always include these for context
+        
+        files = [...plannedFiles, ...contextFiles];
+        
+        // Verify files exist and add related files
+        const verifiedFiles = [];
+        for (const file of files) {
+            try {
+                await fs.access(path.join(repoPath, file));
+                verifiedFiles.push(file);
+                
+                // Add related files (same directory)
+                const dir = path.dirname(file);
+                if (dir !== '.' && dir !== '/') {
+                    try {
+                        const relatedFiles = await glob(`${dir}/*`, { cwd: repoPath, ignore: ['node_modules/**', '.git/**'], nodir: true });
+                        // Add up to 3 related files from same directory
+                        verifiedFiles.push(...relatedFiles.slice(0, 3));
+                    } catch (error) {
+                        console.log(`Could not read related files in ${dir}:`, error.message);
+                    }
+                }
+            } catch {
+                console.log(`Execution Agent: Planned file ${file} not found, will search for similar...`);
+            }
         }
-    } catch (error) {
-        console.error('Error reading files with glob:', error);
+        
+        files = [...new Set(verifiedFiles)]; // Remove duplicates
+        
+        if (files.length === 0) {
+            console.log('Execution Agent: No planned files found, falling back to full repository scan...');
+            const foundFiles = await glob('**/*', { cwd: repoPath, ignore: ['node_modules/**', '.git/**'], nodir: true });
+            files = Array.isArray(foundFiles) ? foundFiles : [];
+        } else {
+            console.log(`Execution Agent: Reading ${files.length} targeted files (planned + context + related)`);
+        }
+    } else {
+        console.log('Execution Agent: No valid plan available, reading all repository files...');
+        try {
+            const foundFiles = await glob('**/*', { cwd: repoPath, ignore: ['node_modules/**', '.git/**'], nodir: true });
+            if (Array.isArray(foundFiles)) {
+                files = foundFiles;
+            } else {
+                console.log('Warning: glob did not return an array. Result:', foundFiles);
+            }
+        } catch (error) {
+            console.error('Error reading files with glob:', error);
+        }
     }
 
     let fileContents = '';
@@ -856,35 +1091,71 @@ app.post('/api/tasks', async (req, res) => {
             repoUpdated = true; // New clone means "updated"
         }
 
-        // 2. Check if we need to generate/regenerate README
-        const needReadmeGeneration = await shouldRegenerateReadme(repoPath, readmePath, repoUpdated);
-        
-        if (needReadmeGeneration) {
-            console.log('Step 2: Generating comprehensive README (repository has changes or README missing)...');
-            readmeResult = await generateReadmeForRepo(repoPath, repoUrl);
-            console.log(`Comprehensive README generated and saved to: ${readmeResult.readmePath}`);
-        } else {
-            console.log('Step 2: Using existing README (no repository changes detected)...');
+        // 2. Check if we need README for task planning (but don't generate branch unless explicitly needed)
+        try {
+            // Try to read existing README first for planning context
+            const existingReadme = await fs.readFile(readmePath, 'utf-8');
+            readmeResult = { 
+                readmeContent: existingReadme, 
+                readmePath: readmePath,
+                updated: false
+            };
+            console.log('Step 2: Using existing README for task planning...');
+        } catch (error) {
+            // Only generate README if absolutely needed and no existing one found
+            console.log('Step 2: No existing README found, generating for task context (no branch creation)...');
+            console.log('AI Agent: Preparing repository content for task planning...');
+            
+            // Generate README content but don't create branch/commit
+            let files = [];
             try {
-                const existingReadme = await fs.readFile(readmePath, 'utf-8');
-                readmeResult = { 
-                    readmeContent: existingReadme, 
-                    readmePath: readmePath,
-                    updated: false
-                };
+                const foundFiles = await glob('**/*', { cwd: repoPath, ignore: ['node_modules/**', '.git/**'], nodir: true });
+                if (Array.isArray(foundFiles)) files = foundFiles;
             } catch (error) {
-                // Fallback - generate README if reading existing fails
-                console.log('Failed to read existing README, generating new one...');
-                readmeResult = await generateReadmeForRepo(repoPath, repoUrl);
+                console.error('Error reading files with glob:', error);
             }
+
+            let fileContents = '';
+            const MAX_TOTAL_LENGTH = 100000;
+            for (const file of files) {
+                if (fileContents.length > MAX_TOTAL_LENGTH) break;
+                try {
+                    const content = await fs.readFile(path.join(repoPath, file), 'utf-8');
+                    const truncated = content.length > 8000 ? content.slice(0, 8000) + "\n\n/* …truncated… */" : content;
+                    fileContents += `--- ${file} ---\n${truncated}\n\n`;
+                } catch (error) {
+                    console.log(`Skipping file ${file}: ${error.message}`);
+                }
+            }
+            
+            const readmeContent = await callAIAgentForReadme(fileContents, repoUrl);
+            await fs.writeFile(readmePath, readmeContent, 'utf-8');
+            
+            readmeResult = { 
+                readmeContent, 
+                readmePath,
+                updated: true,
+                branchCreated: false  // No branch created for this README
+            };
         }
 
-        // 3. Execute the specific user task
-        console.log('Step 3: Executing user task...');
-        const changesSummary = await runAIAgent(repoPath, taskDescription, repoUrl);
+        // 3. Plan the task using Planning Agent
+        console.log('Step 3: Planning task with AI Planning Agent...');
+        let taskPlan = null;
+        try {
+            taskPlan = await callPlanningAgent(taskDescription, readmeResult.readmeContent);
+            console.log(`Planning Agent: Task complexity: ${taskPlan.complexity}`);
+            console.log(`Planning Agent: Files to modify: ${taskPlan.estimatedFiles?.length || 0}`);
+        } catch (planningError) {
+            console.error('Planning Agent failed, proceeding with full analysis:', planningError.message);
+        }
+
+        // 4. Execute the specific user task with planning context
+        console.log('Step 4: Executing user task with smart file targeting...');
+        const changesSummary = await runAIAgent(repoPath, taskDescription, repoUrl, taskPlan);
 
         res.status(200).json({
-            message: 'Task processed successfully with smart update system.',
+            message: 'Task processed successfully with multi-agent system.',
             repository: repoUrl,
             taskDescription: taskDescription.substring(0, 100) + '...',
             repositoryStatus: {
@@ -893,9 +1164,17 @@ app.post('/api/tasks', async (req, res) => {
                 updated: repoUpdated
             },
             readmeStatus: {
-                generated: needReadmeGeneration,
-                path: readmeResult.readmePath,
-                updated: readmeResult.updated !== false
+                generated: readmeResult?.updated || false,
+                path: readmeResult?.readmePath,
+                updated: readmeResult?.updated !== false,
+                branchCreated: readmeResult?.branchCreated !== false
+            },
+            planning: {
+                used: !!taskPlan,
+                complexity: taskPlan?.complexity || 'unknown',
+                estimatedFiles: taskPlan?.estimatedFiles?.length || 0,
+                confidence: taskPlan?.confidence || 'unknown',
+                taskType: taskPlan?.taskType || 'unknown'
             },
             changes: changesSummary,
             readmeContent: readmeResult.readmeContent ? readmeResult.readmeContent.substring(0, 500) + '...' : 'Generated'
@@ -946,6 +1225,50 @@ app.post('/api/generate-readme', async (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {   
     console.log(`Server running on port ${PORT}`);   
+});
+
+// ===== PLANNING AGENT ENDPOINT =====
+app.post('/api/plan-task', async (req, res) => {
+    const { repoUrl, taskDescription } = req.body;
+
+    if (!repoUrl || !taskDescription) {
+        return res.status(400).json({ error: 'repoUrl and taskDescription are required' });
+    }
+
+    try {
+        const repoName = path.basename(repoUrl, '.git');
+        const readmePath = path.join(GENERATED_READMES_DIR, `${repoName}_README.md`);
+
+        // Check if README exists
+        let readmeContent;
+        try {
+            readmeContent = await fs.readFile(readmePath, 'utf-8');
+        } catch (error) {
+            return res.status(404).json({ 
+                error: 'README not found. Please generate repository documentation first.',
+                suggestion: 'Call /api/generate-readme or /api/tasks to create README first'
+            });
+        }
+
+        // Call Planning Agent
+        console.log('Planning Agent: Starting task analysis...');
+        const plan = await callPlanningAgent(taskDescription, readmeContent);
+
+        res.status(200).json({
+            message: 'Task analysis completed successfully',
+            repository: repoUrl,
+            taskDescription,
+            plan,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Planning Agent failed:', error);
+        res.status(500).json({ 
+            error: 'Task planning failed: ' + error.message,
+            fallback: 'Will proceed with full repository analysis if needed'
+        });
+    }
 });
 
 // Simple Activity Endpoint for UI Right Panel
